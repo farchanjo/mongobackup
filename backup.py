@@ -94,5 +94,5 @@ def do_backup():
 
 if __name__ == '__main__':
     load_mongo_databases()
-    # do_backup()
+    do_backup()
     start_remove_old_backups()
