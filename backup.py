@@ -44,7 +44,7 @@ def filter_path_for_remove(tarinfo):
     backup_tar_path = tarinfo.name
     new_path = backup_tar_path.replace(backup_folder_string, '')
     tarinfo.name = new_path
-    logger.info('Archiving %s file' % new_path)
+    logger.info('Archiving %s' % new_path)
     return tarinfo
 
 
