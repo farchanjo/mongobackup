@@ -10,7 +10,7 @@ import tarfile
 
 MONGO_CONNECTOR = 'mongodb://vm.services:27017'
 MONGO_DUMP = '/usr/local/bin/mongodump'
-MONGO_DB_EXCLUDE = ['admin', 'config', 'local', 'vigiadepreco']
+MONGO_DB_EXCLUDE = ['admin', 'config', 'local']
 BACKUP_FOLDER = '/Users/fabricio/1/backup'
 REMOVE_OLD_TIME = 1 * 60 * 30
 
