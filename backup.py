@@ -7,14 +7,16 @@ import subprocess
 import shutil
 from pymongo import MongoClient
 import tarfile
+import urllib.parse
 
-MONGO_CONNECTOR = 'mongodb://vm.services:27017'
+MONGO_CONNECTOR = 'mongodb://vm.services:27017/admin?connectTimeoutMS=300000&tls=false'
 MONGO_DUMP = '/usr/local/bin/mongodump'
 MONGO_DB_EXCLUDE = ['admin', 'config', 'local']
 BACKUP_FOLDER = '/Users/fabricio/1/backup'
 REMOVE_OLD_TIME = 1 * 60 * 30
 
 logger = logging.getLogger("backup")
+MONGO_CONNECTOR_URL = urllib.parse.urlparse(MONGO_CONNECTOR)
 logger.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
@@ -22,9 +24,15 @@ formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 ch.setFormatter(formatter)
 logger.addHandler(ch)
 
+
+def get_mongo_new_path(path):
+    return '%s://%s:%s%s?%s' % (MONGO_CONNECTOR_URL.scheme, MONGO_CONNECTOR_URL.hostname, MONGO_CONNECTOR_URL.port,
+                                path, MONGO_CONNECTOR_URL.query)
+
+
 today = datetime.datetime.now()
 today_timestamp = today.timestamp() * 1000
-mongo_client = MongoClient(MONGO_CONNECTOR + '/admin')
+mongo_client = MongoClient(get_mongo_new_path("/admin"))
 dbs_name = mongo_client.list_database_names()
 mongo_client.close()
 dbs_name = list(filter(lambda x: x not in MONGO_DB_EXCLUDE, dbs_name))
@@ -48,12 +56,13 @@ def start_remove_old_backups():
     for root, dirnames, filenames in os.walk(BACKUP_FOLDER, followlinks=False):
         full_filenames = list(map(lambda x: '%s/%s' % (BACKUP_FOLDER, x), filenames))
         for full_filename in full_filenames:
-            file_stat = os.stat(full_filename)
-            file_created_file = datetime.datetime.fromtimestamp(file_stat.st_ctime)
-            created_duration = today - file_created_file
-            if created_duration.total_seconds() > REMOVE_OLD_TIME:
-                logger.info('Removing %s old backup' % full_filename)
-                os.remove(full_filename)
+            if os.path.exists(full_filename):
+                file_stat = os.stat(full_filename)
+                file_created_file = datetime.datetime.fromtimestamp(file_stat.st_ctime)
+                created_duration = today - file_created_file
+                if created_duration.total_seconds() > REMOVE_OLD_TIME:
+                    logger.info('Removing %s old backup' % full_filename)
+                    os.removedirs(full_filename)
 
 
 def do_backup():
@@ -61,8 +70,8 @@ def do_backup():
         backup_folder = '%s/%s_%s' % (BACKUP_FOLDER, db_name, today_timestamp)
         tar_file = '%s.tar' % backup_folder
         logger.info("Start Backup for database: %s on folder: %s" % (db_name, backup_folder))
-        with(subprocess.Popen([MONGO_DUMP, '--uri=%s/%s' % (MONGO_CONNECTOR, db_name), '--gzip', '-o', backup_folder],
-                              stderr=subprocess.PIPE, stdout=subprocess.PIPE)) as process:
+        with(subprocess.Popen([MONGO_DUMP, '--uri=%s' % get_mongo_new_path('/%s' % db_name), '--gzip', '-o',
+                               backup_folder], stderr=subprocess.PIPE, stdout=subprocess.PIPE)) as process:
             process.communicate()
             process.terminate()
             logger.info('Backup for %s has been finished' % db_name)
