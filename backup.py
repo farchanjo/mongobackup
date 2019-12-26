@@ -23,6 +23,8 @@ ch.setLevel(logging.DEBUG)
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 ch.setFormatter(formatter)
 logger.addHandler(ch)
+today = datetime.datetime.now()
+today_timestamp = today.timestamp() * 1000
 
 
 def get_mongo_new_path(path):
@@ -30,12 +32,11 @@ def get_mongo_new_path(path):
                                 path, MONGO_CONNECTOR_URL.query)
 
 
-today = datetime.datetime.now()
-today_timestamp = today.timestamp() * 1000
-mongo_client = MongoClient(get_mongo_new_path("/admin"))
-dbs_name = mongo_client.list_database_names()
-mongo_client.close()
-dbs_name = list(filter(lambda x: x not in MONGO_DB_EXCLUDE, dbs_name))
+def load_mongo_databases():
+    mongo_client = MongoClient(get_mongo_new_path("/admin"))
+    dbs_name = mongo_client.list_database_names()
+    mongo_client.close()
+    return list(filter(lambda x: x not in MONGO_DB_EXCLUDE, dbs_name))
 
 
 def filter_path_for_remove(tarinfo):
@@ -47,9 +48,10 @@ def filter_path_for_remove(tarinfo):
     return tarinfo
 
 
-if not os.path.exists(BACKUP_FOLDER):
-    logger.info('Folder %s has been created' % BACKUP_FOLDER)
-    os.makedirs(BACKUP_FOLDER, 0o755, True)
+def create_backup_folder():
+    if not os.path.exists(BACKUP_FOLDER):
+        logger.info('Folder %s has been created' % BACKUP_FOLDER)
+        os.makedirs(BACKUP_FOLDER, 0o755, True)
 
 
 def start_remove_old_backups():
@@ -62,10 +64,12 @@ def start_remove_old_backups():
                 created_duration = today - file_created_file
                 if created_duration.total_seconds() > REMOVE_OLD_TIME:
                     logger.info('Removing %s old backup' % full_filename)
-                    os.removedirs(full_filename)
+                    os.remove(full_filename)
 
 
 def do_backup():
+    create_backup_folder()
+    dbs_name = load_mongo_databases()
     for db_name in dbs_name:
         backup_folder = '%s/%s_%s' % (BACKUP_FOLDER, db_name, today_timestamp)
         tar_file = '%s.tar' % backup_folder
@@ -88,5 +92,6 @@ def do_backup():
 
 
 if __name__ == '__main__':
+    load_mongo_databases()
     do_backup()
     start_remove_old_backups()
