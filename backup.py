@@ -21,16 +21,24 @@ BACKUP_FOLDER = '/Users/fabricio/1/backup'
 # Keeping 3 days backups old.
 REMOVE_OLD_TIME = 1 * 60 * 3
 
-logger = logging.getLogger("backup")
 MONGO_CONNECTOR_URL = urllib.parse.urlparse(MONGO_CONNECTOR)
-logger.setLevel(logging.DEBUG)
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-formatter = logging.Formatter("%(asctime)s - %(process)d - %(threadName)s - %(funcName)s - %(levelname)s - %(message)s")
-ch.setFormatter(formatter)
-logger.addHandler(ch)
 today = datetime.datetime.now()
 today_timestamp = today.timestamp() * 1000
+
+
+def get_logger():
+    backup_logger = logging.getLogger("backup")
+    backup_logger.setLevel(logging.DEBUG)
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    formatter = logging.Formatter(
+        "%(asctime)s - %(process)d - %(threadName)s - %(funcName)s - %(levelname)s - %(message)s")
+    ch.setFormatter(formatter)
+    backup_logger.addHandler(ch)
+    return backup_logger
+
+
+logger = get_logger()
 
 
 def get_mongo_new_path(path):
