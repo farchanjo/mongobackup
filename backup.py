@@ -18,8 +18,8 @@ MONGO_CONNECTOR = 'mongodb://vm.services:27017/admin?connectTimeoutMS=300000&tls
 MONGO_DUMP = '/usr/local/bin/mongodump'
 MONGO_DB_EXCLUDE = ['admin', 'config', 'local', 'vigiadepreco']
 BACKUP_FOLDER = '/Users/fabricio/1/backup'
-# Keeping 3 days backups old.
-REMOVE_OLD_TIME = 1 * 60 * 3
+# Keeping 3 days backups old. In seconds
+REMOVE_OLD_TIME = 1 * 60 * 60 * 24 * 3
 
 MONGO_CONNECTOR_URL = urllib.parse.urlparse(MONGO_CONNECTOR)
 today = datetime.datetime.now()
