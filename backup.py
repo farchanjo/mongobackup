@@ -40,7 +40,7 @@ def load_mongo_databases():
     return list(filter(lambda x: x not in MONGO_DB_EXCLUDE, dbs_name))
 
 
-def filter_path_for_remove(tarinfo):
+def path_filter(tarinfo):
     backup_folder_string = BACKUP_FOLDER[1:] + '/'
     backup_tar_path = tarinfo.name
     new_path = backup_tar_path.replace(backup_folder_string, '')
@@ -85,7 +85,7 @@ def do_backup():
                 os.rmdir(tar_file)
             logger.info('Tar Archiving start from %s to %s' % (backup_folder, tar_file))
             with tarfile.open(tar_file, 'x:') as tar:
-                tar.add(backup_folder, recursive=True, filter=filter_path_for_remove)
+                tar.add(backup_folder, recursive=True, filter=path_filter)
                 tar.close()
             logger.info('Tar Archiving from %s to %s has been finished' % (backup_folder, tar_file))
             logger.info('Cleanup backup')
