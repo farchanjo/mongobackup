@@ -5,7 +5,12 @@ import datetime
 import os
 import subprocess
 import shutil
-from pymongo import MongoClient
+
+try:
+    from pymongo import MongoClient
+except ImportError:
+    print('You must install pymongo before. use pip install pymongo  - python3')
+    exit(1)
 import tarfile
 import urllib.parse
 
@@ -14,7 +19,7 @@ MONGO_DUMP = '/usr/local/bin/mongodump'
 MONGO_DB_EXCLUDE = ['admin', 'config', 'local']
 BACKUP_FOLDER = '/Users/fabricio/1/backup'
 # Keeping 3 days backups old.
-REMOVE_OLD_TIME = 1 * 60 * 60 * 24 * 3
+REMOVE_OLD_TIME = 1 * 60 * 3
 
 logger = logging.getLogger("backup")
 MONGO_CONNECTOR_URL = urllib.parse.urlparse(MONGO_CONNECTOR)
