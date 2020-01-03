@@ -5,7 +5,9 @@ import datetime
 import os
 import subprocess
 import shutil
-
+import boto3
+from botocore.exceptions import ClientError
+ 
 try:
     from pymongo import MongoClient
 except ImportError:
@@ -13,19 +15,23 @@ except ImportError:
     exit(1)
 import tarfile
 import urllib.parse
-
+ 
 MONGO_CONNECTOR = 'mongodb://vm.services:27017/admin?connectTimeoutMS=300000&tls=false'
 MONGO_DUMP = '/usr/local/bin/mongodump'
 MONGO_DB_EXCLUDE = ['admin', 'config', 'local']
 BACKUP_FOLDER = '/Users/fabricio/1/backup'
+IS_S3_ENABLED = True
+S3_BUCKET_NAME = 'backup'
+S3_OBJECT_PREFIX = 'mongo/' + datetime.datetime.now().strftime('%Y/%m/%d/')
+ 
 # Keeping 3 days backups old. In seconds
 REMOVE_OLD_TIME = 1 * 60 * 60 * 24 * 3
-
+ 
 MONGO_CONNECTOR_URL = urllib.parse.urlparse(MONGO_CONNECTOR)
 today = datetime.datetime.now()
 today_timestamp = today.timestamp() * 1000
-
-
+ 
+ 
 def get_logger():
     backup_logger = logging.getLogger("backup")
     backup_logger.setLevel(logging.DEBUG)
@@ -36,23 +42,23 @@ def get_logger():
     ch.setFormatter(formatter)
     backup_logger.addHandler(ch)
     return backup_logger
-
-
+ 
+ 
 logger = get_logger()
-
-
+ 
+ 
 def get_mongo_new_path(path):
     return '%s://%s:%s%s?%s' % (MONGO_CONNECTOR_URL.scheme, MONGO_CONNECTOR_URL.hostname, MONGO_CONNECTOR_URL.port,
                                 path, MONGO_CONNECTOR_URL.query)
-
-
+ 
+ 
 def load_mongo_databases():
     mongo_client = MongoClient(get_mongo_new_path("/admin"))
     dbs_name = mongo_client.list_database_names()
     mongo_client.close()
     return list(filter(lambda x: x not in MONGO_DB_EXCLUDE, dbs_name))
-
-
+ 
+ 
 def path_filter(tarinfo):
     backup_folder_string = BACKUP_FOLDER[1:] + '/'
     backup_tar_path = tarinfo.name
@@ -60,14 +66,14 @@ def path_filter(tarinfo):
     tarinfo.name = new_path
     logger.info('Archiving %s' % new_path)
     return tarinfo
-
-
+ 
+ 
 def create_backup_folder():
     if not os.path.exists(BACKUP_FOLDER):
         logger.info('Folder %s has been created' % BACKUP_FOLDER)
         os.makedirs(BACKUP_FOLDER, 0o755, True)
-
-
+ 
+ 
 def start_remove_old_backups():
     for root, dirnames, filenames in os.walk(BACKUP_FOLDER, followlinks=False):
         full_filenames = list(map(lambda x: '%s/%s' % (BACKUP_FOLDER, x), filenames))
@@ -79,11 +85,13 @@ def start_remove_old_backups():
                 if created_duration.total_seconds() > REMOVE_OLD_TIME:
                     logger.info('Removing %s old backup' % full_filename)
                     os.remove(full_filename)
-
-
+ 
+ 
 def do_backup():
     create_backup_folder()
     dbs_name = load_mongo_databases()
+    s3_client = boto3.client('s3')
+ 
     for db_name in dbs_name:
         backup_folder = '%s/%s_%s' % (BACKUP_FOLDER, db_name, today_timestamp)
         tar_file = '%s.tar' % backup_folder
@@ -103,8 +111,16 @@ def do_backup():
             logger.info('Tar Archiving from %s to %s has been finished' % (backup_folder, tar_file))
             logger.info('Cleanup backup')
             shutil.rmtree(backup_folder)
-
-
+ 
+            if IS_S3_ENABLED:
+                try:
+                    response = s3_client.upload_file(tar_file, S3_BUCKET_NAME, S3_OBJECT_PREFIX + db_name + '.tar')
+                except ClientError as e:
+                    logging.error(e)
+   
+                os.remove(tar_file)
+ 
+ 
 if __name__ == '__main__':
     load_mongo_databases()
     start_remove_old_backups()
